@@ -1,2 +1,1 @@
-# simple-layer2-nft
-simple-layer2-nft
+yarn && yarn build && yarn ui
