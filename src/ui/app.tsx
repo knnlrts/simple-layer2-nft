@@ -51,6 +51,8 @@ export function App() {
     const [transactionInProgress, setTransactionInProgress] = useState(false);
     const [imgUrl, setImgUrl] = useState('');
     const [listNFT, setListNFT] = useState([]);
+    const [layer2Address, setLayer2Address] = useState<string | undefined>();
+    const [sudtBalance, setSudtBalance] = useState<number | 0>();
 
     const toastId = React.useRef(null);
     const [newStoredNumberInputValue, setNewStoredNumberInputValue] = useState<
@@ -88,6 +90,27 @@ export function App() {
     }, [transactionInProgress, toastId.current]);
 
     const account = accounts?.[0];
+
+    async function getLater2Address(account: string, web3: Web3) {
+        const addressTranslator = new AddressTranslator();
+        const depositAddress = await addressTranslator.getLayer2DepositAddress(web3, account);
+        console.log(depositAddress.addressString)
+        return depositAddress.addressString
+    }
+
+    const CompiledContractArtifact = require(`../abi/ERC20.json`);
+    const SUDT_PROXY_CONTRACT_ADDRESS = "0xe9a2958B16DDa1602248CC2dCDC29109CCcc250d";
+
+    async function getSUDTBalance(account: string, web3: Web3, polyjuiceAddress:string) {
+        console.log(polyjuiceAddress);
+        const contract = new web3.eth.Contract(CompiledContractArtifact.abi, SUDT_PROXY_CONTRACT_ADDRESS);
+        const balance = await contract.methods.balanceOf(polyjuiceAddress).call({
+            from: account
+        })
+        console.log(balance);
+
+        return balance
+    }
 
     useEffect(() => {
         if (contract) {
@@ -167,6 +190,12 @@ export function App() {
             if (_accounts && _accounts[0]) {
                 const _l2Balance = BigInt(await _web3.eth.getBalance(_accounts[0]));
                 setL2Balance(_l2Balance);
+                const l2Address = await getLater2Address(_accounts[0], _web3);
+                setLayer2Address(l2Address);
+                const addressTranslator = new AddressTranslator();
+                const polyjuiceAddress = addressTranslator.ethAddressToGodwokenShortAddress(_accounts[0]);
+                const balance = await getSUDTBalance(_accounts[0], _web3, polyjuiceAddress);
+                setSudtBalance(balance);
             }
         })();
     });
@@ -187,6 +216,15 @@ export function App() {
             <br />
             Deployed contract address: <b>{contract?.address || '-'}</b> <br />
             Deploy transaction hash: <b>{deployTxHash || '-'}</b>
+            <br />
+            <br />
+            <h3>Transfer assets from the Ethereum blockchain via Force Bridge</h3>
+            Your Layer 2 Deposit Address on Layer 1: <b>{layer2Address}</b><br /><br />
+            Use the <a href="https://force-bridge-test.ckbapp.dev/bridge/Ethereum/Nervos">Force bridge website</a> to transfer tokens from Ethereum to Nervos layer 2.<br />
+            Select the Ethereum asset and amount to transfer across the bridge. In the box marked "Recipient", you will specify the Nervos destination address for the funds: input your the Layer 2 Deposit Address on Layer 1 mentioned above.<br />
+            When you have finished inputting and reviewing your selections, click the <i>Bridge</i> button. You will be asked to sign the transaction using MetaMask as seen below. There will be a small fee for the transfer, and this will be calculated automatically.<br />
+            <br />
+            Your SUDT balance: <b>{sudtBalance}</b><br />
             <br />
             <hr />
             <button onClick={deployContract} disabled={!l2Balance}>
